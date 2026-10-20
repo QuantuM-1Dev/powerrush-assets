@@ -43,8 +43,8 @@ local function face(p, faceId, image, color)
 	gui.Face = faceId
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 64
-	gui.LightInfluence = 0.35
-	gui.Brightness = 1.15
+	gui.LightInfluence = 0 -- coloured drop lights never tint the icon itself
+	gui.Brightness = 1
 	gui.Parent = p
 	if not image or image == "" or image == "rbxassetid://0" then
 		-- no icon uploaded yet: a chunky "?" so the drop still reads as an item
@@ -91,14 +91,14 @@ function ItemVisual.Build(itemId, rarity, displayName)
 	local card = Instance.new("Model")
 	card.Name = "Card"
 	local step = C.DEPTH / C.LAYERS
-	local edge = Color3.new(1, 1, 1):Lerp(color, 0.25):Lerp(Color3.fromRGB(30, 28, 60), 0.45)
+	local edge = Color3.fromRGB(175, 172, 195):Lerp(color, rank == 6 and 0 or 0.15) -- the coin's side: a shaded copy of the icon
 	for i = 0, C.LAYERS - 1 do
 		local layer = part("Layer" .. i, Vector3.new(C.SIZE, C.SIZE, step))
 		layer.CFrame = CFrame.new(0, 0, C.DEPTH / 2 - (i + 0.5) * step)
 		if i == 0 then
 			face(layer, Enum.NormalId.Front, icon, Color3.new(1, 1, 1))
 		else
-			face(layer, Enum.NormalId.Front, icon, edge:Lerp(Color3.new(0, 0, 0), i / C.LAYERS * 0.2))
+			face(layer, Enum.NormalId.Front, icon, edge:Lerp(Color3.new(0, 0, 0), i / C.LAYERS * 0.15))
 		end
 		if i == C.LAYERS - 1 then
 			face(layer, Enum.NormalId.Back, icon, Color3.new(1, 1, 1))
@@ -133,13 +133,13 @@ function ItemVisual.Build(itemId, rarity, displayName)
 
 	-- light beam + light (Rare and up)
 	if rank >= 3 then
-		local a0 = Instance.new("Attachment") a0.Name = "BeamBottom" a0.Parent = pivot
+		local a0 = Instance.new("Attachment") a0.Name = "BeamBottom" a0.Position = Vector3.new(0, C.HOVER + C.SIZE / 2 + 0.4, 0) a0.Parent = pivot -- starts above the icon so it never covers it
 		local a1 = Instance.new("Attachment") a1.Name = "BeamTop" a1.Position = Vector3.new(0, C.BEAM_HEIGHT[rarity] or 8, 0) a1.Parent = pivot
 		local beam = Instance.new("Beam")
 		beam.Attachment0, beam.Attachment1 = a0, a1
 		beam.Texture = TextureIds.beam_light_shaft
 		beam.TextureMode = Enum.TextureMode.Stretch
-		beam.Color = ColorSequence.new(color)
+		beam.Color = rank == 6 and ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 90)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(150, 90, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 220, 255)) }) or ColorSequence.new(color)
 		beam.LightEmission = 1
 		beam.LightInfluence = 0
 		beam.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
@@ -149,8 +149,8 @@ function ItemVisual.Build(itemId, rarity, displayName)
 		beam.Parent = pivot
 		local light = Instance.new("PointLight")
 		light.Color = color
-		light.Range = 8 + rank * 1.5
-		light.Brightness = 1 + (rank - 3) * 0.3
+		light.Range = 6 + rank
+		light.Brightness = 0.6 + (rank - 3) * 0.15
 		light.Shadows = false
 		light.Parent = pivot
 	end
@@ -209,7 +209,12 @@ function ItemVisual.Pose(model, groundCF, t, lift)
 	local yaw = math.rad((t * C.SPIN + phase * 57) % 360)
 	local card = model:FindFirstChild("Card")
 	if card then
-		card:PivotTo(groundCF * CFrame.new(0, y, 0) * CFrame.Angles(0, yaw, math.rad(math.sin(t * 1.3 + phase) * 6)))
+		local glitch = CFrame.identity
+		if model:GetAttribute("Rank") == 6 and (t * 0.9 + phase) % 1 < 0.07 then
+			-- Mythic: a quick glitch twitch now and then
+			glitch = CFrame.new((math.random() - 0.5) * 0.6, (math.random() - 0.5) * 0.25, 0)
+		end
+		card:PivotTo(groundCF * CFrame.new(0, y, 0) * CFrame.Angles(0, yaw, math.rad(math.sin(t * 1.3 + phase) * 6)) * glitch)
 	end
 	local flat = groundCF * CFrame.new(0, 0.22, 0) -- above the studs on the floor
 	local shadow = model:FindFirstChild("Shadow")
